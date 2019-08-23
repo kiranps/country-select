@@ -14,7 +14,12 @@
   },
   "suffix": ".bs.js",
   "bsc-flags": ["-bs-g"],
-  "bs-dependencies": ["reason-react"],
+  "bs-dependencies": [
+    "reason-react",
+    "bs-fetch",
+    "@glennsl/bs-json",
+    "bs-webapi"
+  ],
   "warnings": {
     "error": "+101"
   },
