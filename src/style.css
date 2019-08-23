@@ -1,0 +1,17 @@
+.label {
+  display: inline-block;
+}
+
+.close-icon {
+  display: inline-block;
+  margin-left: 20px;
+  cursor: pointer;
+}
+
+.menu-item {
+  cursor: pointer;
+}
+
+.select {
+  cursor: pointer;
+}
