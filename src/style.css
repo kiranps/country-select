@@ -8,10 +8,40 @@
   cursor: pointer;
 }
 
+.dropdown {
+  margin-top: 4px;
+}
+
+.menu {
+  max-height: 400px;
+  overflow-y: auto;
+  background-color: red;
+}
+
 .menu-item {
   cursor: pointer;
 }
 
 .select {
   cursor: pointer;
+  width: 300px;
+}
+
+.selected-value {
+  background-color: blue;
+  border-radius: 5px;
+  height: 36px;
+}
+
+.search {
+}
+
+.search svg {
+  height: 24px;
+  width: 24px;
+  display: inline-block;
+}
+
+.search input {
+  display: inline-block;
 }
