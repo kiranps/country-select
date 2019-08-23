@@ -20,7 +20,8 @@ type action =
   | Hide
   | ToggleOpen
   | FilterValues
-  | Clear
+  | Clear(list(t))
+  | ResetIndex
   | Search(list(t), string)
   | Select(t);
 
@@ -49,7 +50,8 @@ let reducer = (state, action) =>
     }
   | ToggleOpen => {...state, isOpen: !state.isOpen}
   | Hide => {...state, isOpen: false}
-  | Clear => {...state, value: None}
+  | Clear(options) => {...state, value: None, filteredValues: options}
+  | ResetIndex => {...state, activeIndex: (-1)}
   | Select(choice) => {...state, value: Some(choice), isOpen: false}
   | Search(options, text) => {
       ...state,
@@ -83,16 +85,24 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
     | _ => Js.log("")
     };
 
-  React.useEffect0(() => {
-    DomUtils.addKeybordEventListener("keydown", handleCallback);
-    Some(
-      () => DomUtils.removeKeybordEventListener("keydown", handleCallback),
-    );
-  });
+  React.useEffect1(
+    () => {
+      if (state.isOpen) {
+        dispatch(ResetIndex);
+        DomUtils.addKeybordEventListener("keydown", handleCallback);
+      } else {
+        DomUtils.removeKeybordEventListener("keydown", handleCallback);
+      };
+      Some(
+        () => DomUtils.removeKeybordEventListener("keydown", handleCallback),
+      );
+    },
+    [|state.isOpen|],
+  );
 
   let handleClear = e => {
     ReactEvent.Mouse.stopPropagation(e);
-    dispatch(Clear);
+    dispatch(Clear(values));
     onChange(None);
   };
 

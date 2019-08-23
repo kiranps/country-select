@@ -27,17 +27,3 @@ let useClickOutside = (onClickOutside: Dom.mouseEvent => unit) => {
 
   elementRef;
 };
-
-let useKeyPress = (key, cb) => {
-  React.useEffect0(() => {
-    let handleCallback = e =>
-      if (ReactEvent.Keyboard.key(e) === key) {
-        cb();
-      };
-
-    DomUtils.addKeybordEventListener("keydown", handleCallback);
-    Some(
-      () => DomUtils.removeKeybordEventListener("keydown", handleCallback),
-    );
-  });
-};
