@@ -1,3 +1,4 @@
+open Hooks;
 Utils.require("./style.css");
 Utils.require("flag-icon-css/css/flag-icon.css");
 
@@ -6,67 +7,128 @@ type t = {
   label: string,
 };
 
-[@react.component]
-let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
-  let (value, setValue) = React.useState(_ => None);
-  let (isOpen, setOpen) = React.useState(_ => false);
-  let (searchValue, setSearchValue) = React.useState(_ => "");
+type state = {
+  isOpen: bool,
+  value: option(t),
+  activeIndex: int,
+  filteredValues: list(t),
+};
 
-  let toggleOpen = _ => {
-    setOpen(isOpen => !isOpen);
+type action =
+  | Next
+  | Prev
+  | Hide
+  | ToggleOpen
+  | FilterValues
+  | Clear
+  | Search(list(t), string)
+  | Select(t);
+
+let next = (x, len) => x == len - 1 ? 0 : x + 1;
+let prev = (x, len) => x == 0 ? len - 1 : x - 1;
+
+let filterValues = (values, searchText) =>
+  searchText === ""
+    ? values
+    : List.filter(
+        x => Js.String.includes(searchText, String.lowercase(x.label)),
+        values,
+      );
+
+let reducer = (state, action) =>
+  switch (action) {
+  | Next => {
+      ...state,
+      activeIndex:
+        next(state.activeIndex, List.length(state.filteredValues)),
+    }
+  | Prev => {
+      ...state,
+      activeIndex:
+        prev(state.activeIndex, List.length(state.filteredValues)),
+    }
+  | ToggleOpen => {...state, isOpen: !state.isOpen}
+  | Hide => {...state, isOpen: false}
+  | Clear => {...state, value: None}
+  | Select(choice) => {...state, value: Some(choice), isOpen: false}
+  | Search(options, text) => {
+      ...state,
+      filteredValues: filterValues(options, text),
+    }
   };
 
-  let handleClose = e => {
+let initialState = {
+  isOpen: false,
+  value: None,
+  activeIndex: (-1),
+  filteredValues: [],
+};
+
+[@react.component]
+let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
+  let (state, dispatch) = React.useReducer(reducer, initialState);
+
+  React.useEffect1(
+    () => {
+      dispatch(Search(values, ""));
+      Some(() => ());
+    },
+    [|values|],
+  );
+
+  let handleCallback = e =>
+    switch (ReactEvent.Keyboard.key(e)) {
+    | "ArrowUp" => dispatch(Prev)
+    | "ArrowDown" => dispatch(Next)
+    | _ => Js.log("")
+    };
+
+  React.useEffect0(() => {
+    DomUtils.addKeybordEventListener("keydown", handleCallback);
+    Some(
+      () => DomUtils.removeKeybordEventListener("keydown", handleCallback),
+    );
+  });
+
+  let handleClear = e => {
     ReactEvent.Mouse.stopPropagation(e);
-    setValue(_ => None);
+    dispatch(Clear);
     onChange(None);
   };
 
   let handleSelect = value => {
-    setValue(_ => Some(value));
-    setOpen(_ => false);
+    dispatch(Select(value));
     onChange(Some(value));
   };
 
   let handleSearch = e => {
     let value = ReactEvent.Form.target(e)##value |> String.lowercase;
-    setSearchValue(_ => value);
-    ();
+    dispatch(Search(values, value));
   };
 
-  Js.log(searchValue);
-
-  let filteredValues =
-    searchValue === ""
-      ? values
-      : List.filter(
-          x => Js.String.includes(searchValue, String.lowercase(x.label)),
-          values,
-        );
-
-  let divRef = Hooks.useClickOutside(_ => setOpen(_ => false));
+  let divRef = useClickOutside(_ => dispatch(Hide));
 
   <div className="select" ref={ReactDOMRe.Ref.domRef(divRef)}>
     <div>
-      <div className="selected-value" onClick=toggleOpen>
+      <div className="selected-value" onClick={_ => dispatch(ToggleOpen)}>
         <div className="label">
           {(
-             switch (value) {
+             switch (state.value) {
              | Some(option) => option.label
              | None => "select country"
              }
            )
            |> React.string}
         </div>
-        {switch (value) {
+        {switch (state.value) {
          | Some(_) =>
-           <div className="close-icon" onClick=handleClose>
+           <div className="close-icon" onClick=handleClear>
              {React.string("x")}
            </div>
          | None => React.null
          }}
       </div>
-      {isOpen
+      {state.isOpen
          ? <div className="dropdown">
              <div className="search">
                <svg viewBox="0 0 24 24">
@@ -78,11 +140,14 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
                <input onChange=handleSearch />
              </div>
              <div className="menu">
-               {filteredValues
+               {state.filteredValues
                 |> List.mapi((i, x) =>
                      <div
                        key={string_of_int(i)}
-                       className="menu-item"
+                       className={
+                         "menu-item"
+                         ++ (i === state.activeIndex ? "--active" : "")
+                       }
                        onClick={_ => handleSelect(x)}>
                        <span className={"flag-icon flag-icon-" ++ x.value} />
                        <span> {React.string(x.label)} </span>

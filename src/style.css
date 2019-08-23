@@ -22,6 +22,11 @@
   cursor: pointer;
 }
 
+.menu-item--active {
+  background-color: red;
+  color: white;
+}
+
 .select {
   cursor: pointer;
   width: 300px;
