@@ -66,8 +66,26 @@ let initialState = {
   filteredValues: [],
 };
 
+// temp3.getElementsByClassName("menu-item--active")[0].scrollIntoView(false)
+
+[@bs.send.pipe: Dom.element]
+external getElementsByClassName: string => Dom.htmlCollection = "";
+
+[@bs.get] external nextElementSibling: Dom.element => Dom.element = "";
+
+[@bs.send.pipe: Dom.element]
+external scrollIntoViewIfNeeded: bool => unit = "";
+
+[@bs.send.pipe: Dom.htmlCollection] [@bs.return nullable]
+external item: int => option(Dom.element) = "item";
+
 [@react.component]
 let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
+  let menuRef = React.useRef(Js.Nullable.null);
+  let lastKeyPress = React.useRef("");
+
+  let handleScroll = () => {};
+
   let (state, dispatch) = React.useReducer(reducer, initialState);
 
   React.useEffect1(
@@ -78,10 +96,35 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
     [|values|],
   );
 
+  React.useLayoutEffect1(
+    () => {
+      let menuDiv = menuRef |> React.Ref.current;
+      let isScrollingUp = React.Ref.current(lastKeyPress) === "up";
+
+      if (menuDiv !== Js.Nullable.null) {
+        menuDiv
+        |> Js.Nullable.toOption
+        |> Belt.Option.getExn
+        |> getElementsByClassName("menu-item--active")
+        |> item(0)
+        |> Belt.Option.getExn
+        |> scrollIntoViewIfNeeded(isScrollingUp);
+        ();
+      };
+
+      Some(() => ());
+    },
+    [|state.activeIndex|],
+  );
+
   let handleCallback = e =>
     switch (ReactEvent.Keyboard.key(e)) {
-    | "ArrowUp" => dispatch(Prev)
-    | "ArrowDown" => dispatch(Next)
+    | "ArrowUp" =>
+      React.Ref.setCurrent(lastKeyPress, "up");
+      dispatch(Prev);
+    | "ArrowDown" =>
+      React.Ref.setCurrent(lastKeyPress, "down");
+      dispatch(Next);
     | _ => Js.log("")
     };
 
@@ -149,7 +192,7 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
                </svg>
                <input onChange=handleSearch />
              </div>
-             <div className="menu">
+             <div className="menu" ref={ReactDOMRe.Ref.domRef(menuRef)}>
                {state.filteredValues
                 |> List.mapi((i, x) =>
                      <div
