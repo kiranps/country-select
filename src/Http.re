@@ -1,0 +1,1 @@
+let get = url => Js.Promise.(Fetch.fetch(url) |> then_(Fetch.Response.json));

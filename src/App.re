@@ -1,4 +1,14 @@
+open Js.Promise;
+
 [@react.component]
 let make = () => {
-  <div> {React.string("hello world")} </div>;
+  let (choices, setChoices) = React.useState(_ => []);
+
+  React.useEffect0(() => {
+    Countries.Db.fetch() |> then_(values => setChoices(_ => values) |> resolve);
+    Some(() => ());
+  });
+
+  let handleChange = e => Js.log(e);
+  <Select values=choices onChange=handleChange />;
 };
