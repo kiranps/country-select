@@ -21,6 +21,7 @@ type action =
   | ToggleOpen
   | Clear(list(t))
   | ResetIndex
+  | OnEnter
   | Search(list(t), string)
   | Select(t);
 
@@ -52,6 +53,11 @@ let reducer = (state, action) =>
   | Clear(options) => {...state, value: None, filteredValues: options}
   | ResetIndex => {...state, activeIndex: (-1)}
   | Select(choice) => {...state, value: Some(choice), isOpen: false}
+  | OnEnter => {
+      ...state,
+      value: Some(List.nth(state.filteredValues, state.activeIndex)),
+      isOpen: false,
+    }
   | Search(options, text) => {
       ...state,
       filteredValues: filterValues(options, text),
@@ -83,8 +89,7 @@ external item: int => option(Dom.element) = "item";
 let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
   let menuRef = React.useRef(Js.Nullable.null);
   let lastKeyPress = React.useRef("");
-
-  let handleScroll = () => {};
+  let didMountRef = React.useRef(false);
 
   let (state, dispatch) = React.useReducer(reducer, initialState);
 
@@ -94,6 +99,19 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
       Some(() => ());
     },
     [|values|],
+  );
+
+  /* skips first render */
+  React.useEffect1(
+    () => {
+      if (React.Ref.current(didMountRef)) {
+        onChange(state.value);
+      } else {
+        React.Ref.setCurrent(didMountRef, true);
+      };
+      Some(() => ());
+    },
+    [|state.value|],
   );
 
   React.useLayoutEffect1(
@@ -117,6 +135,12 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
     [|state.activeIndex|],
   );
 
+  let handleSelect = index => {
+    let value = List.nth(state.filteredValues, index);
+    dispatch(Select(value));
+    onChange(Some(value));
+  };
+
   let handleCallback = e =>
     switch (ReactEvent.Keyboard.key(e)) {
     | "ArrowUp" =>
@@ -125,6 +149,7 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
     | "ArrowDown" =>
       React.Ref.setCurrent(lastKeyPress, "down");
       dispatch(Next);
+    | "Enter" => dispatch(OnEnter)
     | _ => Js.log("")
     };
 
@@ -147,11 +172,6 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
     ReactEvent.Mouse.stopPropagation(e);
     dispatch(Clear(values));
     onChange(None);
-  };
-
-  let handleSelect = value => {
-    dispatch(Select(value));
-    onChange(Some(value));
   };
 
   let handleSearch = e => {
@@ -193,14 +213,14 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
             <div className="menu" ref={ReactDOMRe.Ref.domRef(menuRef)}>
               {
                 state.filteredValues
-                |> List.mapi((i, x) =>
+                |> List.mapi((i, x: t) =>
                      <div
                        key={string_of_int(i)}
                        className={
                          "menu-item"
                          ++ (i === state.activeIndex ? " active" : "")
                        }
-                       onClick={_ => handleSelect(x)}>
+                       onClick={_ => dispatch(Select(x))}>
                        <span className={"flag-icon flag-icon-" ++ x.value} />
                        <span className="menu-item-label">
                          {React.string(x.label)}
