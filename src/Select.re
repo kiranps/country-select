@@ -19,7 +19,6 @@ type action =
   | Prev
   | Hide
   | ToggleOpen
-  | FilterValues
   | Clear(list(t))
   | ResetIndex
   | Search(list(t), string)
@@ -29,12 +28,12 @@ let next = (x, len) => x == len - 1 ? 0 : x + 1;
 let prev = (x, len) => x == 0 ? len - 1 : x - 1;
 
 let filterValues = (values, searchText) =>
-  searchText === ""
-    ? values
-    : List.filter(
-        x => Js.String.includes(searchText, String.lowercase(x.label)),
-        values,
-      );
+  searchText === "" ?
+    values :
+    List.filter(
+      x => Js.String.includes(searchText, String.lowercase(x.label)),
+      values,
+    );
 
 let reducer = (state, action) =>
   switch (action) {
@@ -56,6 +55,7 @@ let reducer = (state, action) =>
   | Search(options, text) => {
       ...state,
       filteredValues: filterValues(options, text),
+      activeIndex: (-1),
     }
   };
 
@@ -66,7 +66,7 @@ let initialState = {
   filteredValues: [],
 };
 
-// temp3.getElementsByClassName("menu-item--active")[0].scrollIntoView(false)
+/* temp3.getElementsByClassName("menu-item--active")[0].scrollIntoView(false) */
 
 [@bs.send.pipe: Dom.element]
 external getElementsByClassName: string => Dom.htmlCollection = "";
@@ -101,7 +101,7 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
       let menuDiv = menuRef |> React.Ref.current;
       let isScrollingUp = React.Ref.current(lastKeyPress) === "up";
 
-      if (menuDiv !== Js.Nullable.null) {
+      if (menuDiv !== Js.Nullable.null && state.activeIndex !== (-1)) {
         menuDiv
         |> Js.Nullable.toOption
         |> Belt.Option.getExn
@@ -165,35 +165,41 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
     <div>
       <div className="selected-value" onClick={_ => dispatch(ToggleOpen)}>
         <div className="label">
-          {(
-             switch (state.value) {
-             | Some(option) => option.label
-             | None => "select country"
-             }
-           )
-           |> React.string}
+          {
+            (
+              switch (state.value) {
+              | Some(option) => option.label
+              | None => "select country"
+              }
+            )
+            |> React.string
+          }
         </div>
-        {switch (state.value) {
-         | Some(_) =>
-           <div className="close-icon" onClick=handleClear>
-             {React.string("x")}
-           </div>
-         | None => React.null
-         }}
+        {
+          switch (state.value) {
+          | Some(_) =>
+            <div className="close-icon" onClick=handleClear>
+              {React.string("x")}
+            </div>
+          | None => React.null
+          }
+        }
       </div>
-      {state.isOpen
-         ? <div className="dropdown">
-             <div className="search">
-               <svg viewBox="0 0 24 24">
-                 <path
-                   fill="#000000"
-                   d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"
-                 />
-               </svg>
-               <input onChange=handleSearch />
-             </div>
-             <div className="menu" ref={ReactDOMRe.Ref.domRef(menuRef)}>
-               {state.filteredValues
+      {
+        state.isOpen ?
+          <div className="dropdown">
+            <div className="search">
+              <svg viewBox="0 0 24 24">
+                <path
+                  fill="#000000"
+                  d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"
+                />
+              </svg>
+              <input onChange=handleSearch />
+            </div>
+            <div className="menu" ref={ReactDOMRe.Ref.domRef(menuRef)}>
+              {
+                state.filteredValues
                 |> List.mapi((i, x) =>
                      <div
                        key={string_of_int(i)}
@@ -207,10 +213,12 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
                      </div>
                    )
                 |> Array.of_list
-                |> React.array}
-             </div>
-           </div>
-         : React.null}
+                |> React.array
+              }
+            </div>
+          </div> :
+          React.null
+      }
     </div>
   </div>;
 };
