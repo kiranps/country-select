@@ -10,35 +10,85 @@
 
 .dropdown {
   margin-top: 4px;
+  border: solid 1px #cecece;
+  border-radius: 2px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
 }
 
 .menu {
   max-height: 400px;
   overflow-y: auto;
-  background-color: red;
 }
 
 .menu-item {
   cursor: pointer;
+  padding: 5px 0 5px 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.menu-item--active {
-  background-color: red;
-  color: white;
+.menu-item:hover {
+  background-color: #eaeaea;
+}
+
+.menu-item.active {
+  background-color: #eaeaea;
+}
+
+.menu-item-label {
+  padding-left: 10px;
 }
 
 .select {
   cursor: pointer;
   width: 300px;
+  box-sizing: border-box;
+}
+
+.select * {
+  box-sizing: border-box;
 }
 
 .selected-value {
-  background-color: blue;
+  background-color: white;
+  border: solid 1px #cecece;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
   border-radius: 5px;
   height: 36px;
+  padding: 5px 5px 0 12px;
+}
+
+.selected-value * {
+  vertical-align: top;
+}
+
+.selected-value .label {
+  width: 82%;
+  padding-top: 3px;
+}
+
+.icon-close {
+  height: 16px;
+  margin-top: 4px;
+}
+
+.icon-arrow-down {
+  height: 26px;
+  float: right;
 }
 
 .search {
+  box-sizing: border-box;
+  height: 40px;
+  padding: 5px 0 5px 10px;
+  border-bottom: solid 1px #cecece;
+}
+
+.search * {
+  box-sizing: border-box;
+  vertical-align: middle;
 }
 
 .search svg {
@@ -49,4 +99,8 @@
 
 .search input {
   display: inline-block;
+  height: 100%;
+  margin-left: 8px;
+  border: none;
+  outline: none;
 }

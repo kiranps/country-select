@@ -105,7 +105,7 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
         menuDiv
         |> Js.Nullable.toOption
         |> Belt.Option.getExn
-        |> getElementsByClassName("menu-item--active")
+        |> getElementsByClassName("menu-item active")
         |> item(0)
         |> Belt.Option.getExn
         |> scrollIntoViewIfNeeded(isScrollingUp);
@@ -177,25 +177,18 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
         </div>
         {
           switch (state.value) {
-          | Some(_) =>
-            <div className="close-icon" onClick=handleClear>
-              {React.string("x")}
-            </div>
+          | Some(_) => <Icon.Close onClick=handleClear />
           | None => React.null
           }
         }
+        <Icon.ArrowDown />
       </div>
       {
         state.isOpen ?
           <div className="dropdown">
             <div className="search">
-              <svg viewBox="0 0 24 24">
-                <path
-                  fill="#000000"
-                  d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"
-                />
-              </svg>
-              <input onChange=handleSearch />
+              <Icon.Search />
+              <input placeholder="Search" onChange=handleSearch />
             </div>
             <div className="menu" ref={ReactDOMRe.Ref.domRef(menuRef)}>
               {
@@ -205,11 +198,13 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
                        key={string_of_int(i)}
                        className={
                          "menu-item"
-                         ++ (i === state.activeIndex ? "--active" : "")
+                         ++ (i === state.activeIndex ? " active" : "")
                        }
                        onClick={_ => handleSelect(x)}>
                        <span className={"flag-icon flag-icon-" ++ x.value} />
-                       <span> {React.string(x.label)} </span>
+                       <span className="menu-item-label">
+                         {React.string(x.label)}
+                       </span>
                      </div>
                    )
                 |> Array.of_list
