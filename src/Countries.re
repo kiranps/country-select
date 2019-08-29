@@ -1,6 +1,8 @@
+type t = {
+  value: string,
+  label: string,
+};
 module Decode = {
-  open Select;
-
   let object_ = json =>
     Json.Decode.{
       value: json |> field("value", string),

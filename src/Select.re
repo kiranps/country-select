@@ -1,17 +1,16 @@
 open Hooks;
 open VirtualList;
 open DomUtils;
+open Js.Promise;
+
 Utils.require("./style.css");
 Utils.require("flag-icon-css/css/flag-icon.css");
 
-type t = {
-  value: string,
-  label: string,
-};
+type t = Countries.t;
 
 type state = {
   isOpen: bool,
-  value: option(t),
+  value: option(string),
   values: list(t),
   activeIndex: int,
   filteredValues: list(t),
@@ -27,7 +26,7 @@ type action =
   | SelectEnter
   | UpdateValues(list(t))
   | Search(string)
-  | Select(t);
+  | Select(string);
 
 let convertStyleObjToReasonStyle = x =>
   ReactDOMRe.Style.make()
@@ -40,7 +39,7 @@ let filterValues = (values, searchText) =>
   searchText === "" ?
     values :
     List.filter(
-      x => Js.String.includes(searchText, String.lowercase(x.label)),
+      (x: t) => Js.String.includes(searchText, String.lowercase(x.label)),
       values,
     );
 
@@ -74,7 +73,7 @@ let reducer = (state, action) =>
     }
   | SelectEnter => {
       ...state,
-      value: Some(List.nth(state.filteredValues, state.activeIndex)),
+      value: Some(List.nth(state.filteredValues, state.activeIndex).value),
       filteredValues: state.values,
       isOpen: false,
     }
@@ -103,7 +102,7 @@ module Country = {
 };
 
 [@react.component]
-let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
+let make = (~country: option(string), ~onChange: option(string) => unit=?) => {
   let lastKeyPress = React.useRef("");
   let didMountRef = React.useRef(false);
   let (state, dispatch) = React.useReducer(reducer, initialState);
@@ -112,11 +111,21 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
 
   React.useEffect1(
     () => {
-      dispatch(UpdateValues(values));
+      switch (country) {
+      | Some(value) => dispatch(Select(value))
+      | None => ()
+      };
       Some(() => ());
     },
-    [|values|],
+    [|country|],
   );
+
+  React.useEffect0(() => {
+    Countries.Db.fetch()
+    |> then_(values => dispatch(UpdateValues(values)) |> resolve)
+    |> ignore;
+    Some(() => ());
+  });
 
   /* skips first render */
   React.useEffect1(
@@ -177,12 +186,6 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
     [|state.isOpen|],
   );
 
-  let handleClear = e => {
-    ReactEvent.Mouse.stopPropagation(e);
-    dispatch(Clear);
-    onChange(None);
-  };
-
   let handleSearch = e => {
     let value = ReactEvent.Form.target(e)##value |> String.lowercase;
     dispatch(Search(value));
@@ -197,17 +200,25 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
         <div className="label">
           {
             (
-              switch (state.value) {
-              | Some(option) => option.label
-              | None => "select country"
-              }
+              List.length(state.values) > 0 ?
+                switch (state.value) {
+                | Some(value) =>
+                  switch (
+                    List.find((x: t) => x.value === value, state.values)
+                  ) {
+                  | exception Not_found => "Select country"
+                  | value => value.label
+                  }
+                | None => "Select country"
+                } :
+                ""
             )
             |> React.string
           }
         </div>
         {
           switch (state.value) {
-          | Some(_) => <Icon.Close onClick=handleClear />
+          | Some(_) => <Icon.Close onClick=(_ => dispatch(Clear)) />
           | None => React.null
           }
         }
@@ -242,7 +253,9 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
                        active={index == state.activeIndex}
                        value={filteredValues[index].value}
                        label={filteredValues[index].label}
-                       onClick={_ => dispatch(Select(filteredValues[index]))}
+                       onClick={
+                         _ => dispatch(Select(filteredValues[index].value))
+                       }
                      />;
                    }
                  }
