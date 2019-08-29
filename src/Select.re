@@ -11,6 +11,7 @@ type t = {
 type state = {
   isOpen: bool,
   value: option(t),
+  values: list(t),
   activeIndex: int,
   filteredValues: list(t),
 };
@@ -20,10 +21,11 @@ type action =
   | Prev
   | Hide
   | ToggleOpen
-  | Clear(list(t))
+  | Clear
   | ResetIndex
   | OnEnter
-  | Search(list(t), string)
+  | UpdateValues(list(t))
+  | Search(string)
   | Select(t);
 
 let convertStyleObjToReasonStyle = x =>
@@ -56,9 +58,14 @@ let reducer = (state, action) =>
       activeIndex:
         prev(state.activeIndex, List.length(state.filteredValues)),
     }
-  | ToggleOpen => {...state, isOpen: !state.isOpen}
-  | Hide => {...state, isOpen: false}
-  | Clear(options) => {...state, value: None, filteredValues: options}
+  | UpdateValues(values) => {...state, values, filteredValues: values}
+  | ToggleOpen => {
+      ...state,
+      isOpen: !state.isOpen,
+      filteredValues: state.values,
+    }
+  | Hide => {...state, isOpen: false, filteredValues: state.values}
+  | Clear => {...state, value: None, filteredValues: state.values}
   | ResetIndex => {...state, activeIndex: (-1)}
   | Select(choice) => {...state, value: Some(choice), isOpen: false}
   | OnEnter => {
@@ -66,9 +73,9 @@ let reducer = (state, action) =>
       value: Some(List.nth(state.filteredValues, state.activeIndex)),
       isOpen: false,
     }
-  | Search(options, text) => {
+  | Search(text) => {
       ...state,
-      filteredValues: filterValues(options, text),
+      filteredValues: filterValues(state.values, text),
       activeIndex: (-1),
     }
   };
@@ -76,6 +83,7 @@ let reducer = (state, action) =>
 let initialState = {
   isOpen: false,
   value: None,
+  values: [],
   activeIndex: (-1),
   filteredValues: [],
 };
@@ -97,7 +105,7 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
 
   React.useEffect1(
     () => {
-      dispatch(Search(values, ""));
+      dispatch(UpdateValues(values));
       Some(() => ());
     },
     [|values|],
@@ -118,13 +126,13 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
 
   let handleClear = e => {
     ReactEvent.Mouse.stopPropagation(e);
-    dispatch(Clear(values));
+    dispatch(Clear);
     onChange(None);
   };
 
   let handleSearch = e => {
     let value = ReactEvent.Form.target(e)##value |> String.lowercase;
-    dispatch(Search(values, value));
+    dispatch(Search(value));
   };
 
   let filteredValues = state.filteredValues |> Array.of_list;
