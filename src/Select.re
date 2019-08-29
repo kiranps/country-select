@@ -23,7 +23,7 @@ type action =
   | ToggleOpen
   | Clear
   | ResetIndex
-  | OnEnter
+  | SelectEnter
   | UpdateValues(list(t))
   | Search(string)
   | Select(t);
@@ -34,9 +34,6 @@ let convertStyleObjToReasonStyle = x =>
   |> ReactDOMRe.Style.unsafeAddProp(_, "left", leftGet(x))
   |> ReactDOMRe.Style.unsafeAddProp(_, "top", topGet(x))
   |> ReactDOMRe.Style.unsafeAddProp(_, "width", widthGet(x));
-
-let next = (x, len) => x == len - 1 ? 0 : x + 1;
-let prev = (x, len) => x == 0 ? len - 1 : x - 1;
 
 let filterValues = (values, searchText) =>
   searchText === "" ?
@@ -51,12 +48,13 @@ let reducer = (state, action) =>
   | Next => {
       ...state,
       activeIndex:
-        next(state.activeIndex, List.length(state.filteredValues)),
+        state.activeIndex + 1 === List.length(state.filteredValues) ?
+          state.activeIndex : state.activeIndex + 1,
     }
   | Prev => {
       ...state,
       activeIndex:
-        prev(state.activeIndex, List.length(state.filteredValues)),
+        state.activeIndex <= 0 ? state.activeIndex : state.activeIndex - 1,
     }
   | UpdateValues(values) => {...state, values, filteredValues: values}
   | ToggleOpen => {
@@ -67,10 +65,16 @@ let reducer = (state, action) =>
   | Hide => {...state, isOpen: false, filteredValues: state.values}
   | Clear => {...state, value: None, filteredValues: state.values}
   | ResetIndex => {...state, activeIndex: (-1)}
-  | Select(choice) => {...state, value: Some(choice), isOpen: false}
-  | OnEnter => {
+  | Select(choice) => {
+      ...state,
+      value: Some(choice),
+      filteredValues: state.values,
+      isOpen: false,
+    }
+  | SelectEnter => {
       ...state,
       value: Some(List.nth(state.filteredValues, state.activeIndex)),
+      filteredValues: state.values,
       isOpen: false,
     }
   | Search(text) => {
@@ -88,6 +92,17 @@ let initialState = {
   filteredValues: [],
 };
 
+[@bs.send.pipe: Dom.element]
+external getElementsByClassName: string => Dom.htmlCollection = "";
+
+[@bs.get] external nextElementSibling: Dom.element => Dom.element = "";
+
+[@bs.send.pipe: Dom.element]
+external scrollIntoViewIfNeeded: bool => unit = "";
+
+[@bs.send.pipe: Dom.htmlCollection] [@bs.return nullable]
+external item: int => option(Dom.element) = "item";
+
 module Country = {
   [@react.component]
   let make = (~active, ~label, ~value, ~style, ~onClick) =>
@@ -99,9 +114,11 @@ module Country = {
 
 [@react.component]
 let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
+  let lastKeyPress = React.useRef("");
   let didMountRef = React.useRef(false);
-
   let (state, dispatch) = React.useReducer(reducer, initialState);
+
+  let divRef = useClickOutside(_ => dispatch(Hide));
 
   React.useEffect1(
     () => {
@@ -124,6 +141,54 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
     [|state.value|],
   );
 
+  React.useLayoutEffect1(
+    () => {
+      let menuDiv = divRef |> React.Ref.current;
+      let isScrollingUp = React.Ref.current(lastKeyPress) === "up";
+
+      if (menuDiv !== Js.Nullable.null && state.activeIndex !== (-1)) {
+        menuDiv
+        |> Js.Nullable.toOption
+        |> Belt.Option.getExn
+        |> getElementsByClassName("menu-item active")
+        |> item(0)
+        |> Belt.Option.getExn
+        |> scrollIntoViewIfNeeded(isScrollingUp);
+        ();
+      };
+
+      Some(() => ());
+    },
+    [|state.activeIndex|],
+  );
+
+  let handleCallback = e =>
+    switch (ReactEvent.Keyboard.key(e)) {
+    | "ArrowUp" =>
+      React.Ref.setCurrent(lastKeyPress, "up");
+      dispatch(Prev);
+    | "ArrowDown" =>
+      React.Ref.setCurrent(lastKeyPress, "down");
+      dispatch(Next);
+    | "Enter" => dispatch(SelectEnter)
+    | _ => Js.log("")
+    };
+
+  React.useEffect1(
+    () => {
+      if (state.isOpen) {
+        dispatch(ResetIndex);
+        DomUtils.addKeybordEventListener("keydown", handleCallback);
+      } else {
+        DomUtils.removeKeybordEventListener("keydown", handleCallback);
+      };
+      Some(
+        () => DomUtils.removeKeybordEventListener("keydown", handleCallback),
+      );
+    },
+    [|state.isOpen|],
+  );
+
   let handleClear = e => {
     ReactEvent.Mouse.stopPropagation(e);
     dispatch(Clear);
@@ -137,8 +202,6 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
 
   let filteredValues = state.filteredValues |> Array.of_list;
   let filteredValuesLength = Array.length(filteredValues);
-
-  let divRef = useClickOutside(_ => dispatch(Hide));
 
   <div className="select" ref={ReactDOMRe.Ref.domRef(divRef)}>
     <div>
