@@ -97,6 +97,8 @@ external getElementsByClassName: string => Dom.htmlCollection = "";
 
 [@bs.get] external nextElementSibling: Dom.element => Dom.element = "";
 
+[@bs.get] external focus: Dom.element => unit = "";
+
 [@bs.send.pipe: Dom.element]
 external scrollIntoViewIfNeeded: bool => unit = "";
 
@@ -230,7 +232,11 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
           <div className="dropdown">
             <div className="search">
               <Icon.Search />
-              <input placeholder="Search" onChange=handleSearch />
+              <input
+                autoFocus=true
+                placeholder="Search"
+                onChange=handleSearch
+              />
             </div>
             <VirtualList
               height={
