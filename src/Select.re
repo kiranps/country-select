@@ -9,6 +9,7 @@ Utils.require("flag-icon-css/css/flag-icon.css");
 type t = Countries.t;
 
 type state = {
+  focus: bool,
   isOpen: bool,
   value: option(string),
   values: list(t),
@@ -23,6 +24,8 @@ type action =
   | ToggleOpen
   | Clear
   | ResetIndex
+  | Focus
+  | Blur
   | SelectEnter
   | UpdateValues(list(t))
   | Search(string)
@@ -64,6 +67,8 @@ let reducer = (state, action) =>
     }
   | Hide => {...state, isOpen: false, filteredValues: state.values}
   | Clear => {...state, value: None, filteredValues: state.values}
+  | Focus => {...state, focus: true}
+  | Blur => {...state, focus: false}
   | ResetIndex => {...state, activeIndex: (-1)}
   | Select(choice) => {
       ...state,
@@ -85,6 +90,7 @@ let reducer = (state, action) =>
   };
 
 let initialState = {
+  focus: false,
   isOpen: false,
   value: None,
   values: [],
@@ -105,7 +111,8 @@ module Country = {
 let make = (~country: option(string), ~onChange: option(string) => unit=?) => {
   let lastKeyPress = React.useRef("");
   let didMountRef = React.useRef(false);
-  let (state, dispatch) = React.useReducer(reducer, initialState);
+  let (state, dispatch) =
+    React.useReducer(reducer, {...initialState, value: country});
 
   let divRef = useClickOutside(_ => dispatch(Hide));
 
@@ -186,17 +193,41 @@ let make = (~country: option(string), ~onChange: option(string) => unit=?) => {
     [|state.isOpen|],
   );
 
+  let handleOpenDropDown = _ => dispatch(ToggleOpen);
+
+  React.useEffect1(
+    () => {
+      if (state.focus) {
+        addKeybordEventListener("keydown", handleOpenDropDown);
+      } else {
+        removeKeybordEventListener("keydown", handleOpenDropDown);
+      };
+      Some(() => removeKeybordEventListener("keydown", handleOpenDropDown));
+    },
+    [|state.focus|],
+  );
+
   let handleSearch = e => {
     let value = ReactEvent.Form.target(e)##value |> String.lowercase;
     dispatch(Search(value));
   };
+
+  let handleFocus = _ => dispatch(Focus);
+  let handleBlur = _ => dispatch(Blur);
 
   let filteredValues = state.filteredValues |> Array.of_list;
   let filteredValuesLength = Array.length(filteredValues);
 
   <div className="select" ref={ReactDOMRe.Ref.domRef(divRef)}>
     <div>
-      <div className="selected-value" onClick={_ => dispatch(ToggleOpen)}>
+      <div
+        className={"selected-value" ++ (state.focus ? " focus" : "")}
+        onClick={_ => dispatch(ToggleOpen)}>
+        <input
+          className="select-focus"
+          onFocus=handleFocus
+          onBlur=handleBlur
+        />
         <div className="label">
           {
             (
