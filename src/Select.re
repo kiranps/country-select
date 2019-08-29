@@ -28,10 +28,10 @@ type action =
 
 let convertStyleObjToReasonStyle = x =>
   ReactDOMRe.Style.make()
-  |> ReactDOMRe.Style.unsafeAddProp(_, "position", x->position)
-  |> ReactDOMRe.Style.unsafeAddProp(_, "left", x->left)
-  |> ReactDOMRe.Style.unsafeAddProp(_, "top", x->top)
-  |> ReactDOMRe.Style.unsafeAddProp(_, "width", x->width);
+  |> ReactDOMRe.Style.unsafeAddProp(_, "position", positionGet(x))
+  |> ReactDOMRe.Style.unsafeAddProp(_, "left", leftGet(x))
+  |> ReactDOMRe.Style.unsafeAddProp(_, "top", topGet(x))
+  |> ReactDOMRe.Style.unsafeAddProp(_, "width", widthGet(x));
 
 let next = (x, len) => x == len - 1 ? 0 : x + 1;
 let prev = (x, len) => x == 0 ? len - 1 : x - 1;
@@ -127,6 +127,9 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
     dispatch(Search(values, value));
   };
 
+  let filteredValues = state.filteredValues |> Array.of_list;
+  let filteredValuesLength = Array.length(filteredValues);
+
   let divRef = useClickOutside(_ => dispatch(Hide));
 
   <div className="select" ref={ReactDOMRe.Ref.domRef(divRef)}>
@@ -159,26 +162,24 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
               <input placeholder="Search" onChange=handleSearch />
             </div>
             <VirtualList
-              height=400
-              itemCount={List.length(state.filteredValues)}
+              height={
+                filteredValuesLength > 15 ? 400 : filteredValuesLength * 28
+              }
+              itemCount=filteredValuesLength
               itemSize=28
               width=298>
               ...{
                    (~props) => {
-                     let style = convertStyleObjToReasonStyle(props->style);
-                     let index = props->index;
+                     let style =
+                       props |> styleGet |> convertStyleObjToReasonStyle;
+                     let index = props |> indexGet;
                      <Country
+                       style
                        key={string_of_int(index)}
                        active={index == state.activeIndex}
-                       value={List.nth(state.filteredValues, index).value}
-                       label={List.nth(state.filteredValues, index).label}
-                       style
-                       onClick={
-                         _ =>
-                           dispatch(
-                             Select(List.nth(state.filteredValues, index)),
-                           )
-                       }
+                       value={filteredValues[index].value}
+                       label={filteredValues[index].label}
+                       onClick={_ => dispatch(Select(filteredValues[index]))}
                      />;
                    }
                  }
