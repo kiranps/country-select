@@ -1,4 +1,5 @@
 open Hooks;
+open VirtualList;
 Utils.require("./style.css");
 Utils.require("flag-icon-css/css/flag-icon.css");
 
@@ -24,6 +25,13 @@ type action =
   | OnEnter
   | Search(list(t), string)
   | Select(t);
+
+let convertStyleObjToReasonStyle = x =>
+  ReactDOMRe.Style.make()
+  |> ReactDOMRe.Style.unsafeAddProp(_, "position", x->position)
+  |> ReactDOMRe.Style.unsafeAddProp(_, "left", x->left)
+  |> ReactDOMRe.Style.unsafeAddProp(_, "top", x->top)
+  |> ReactDOMRe.Style.unsafeAddProp(_, "width", x->width);
 
 let next = (x, len) => x == len - 1 ? 0 : x + 1;
 let prev = (x, len) => x == 0 ? len - 1 : x - 1;
@@ -72,23 +80,17 @@ let initialState = {
   filteredValues: [],
 };
 
-/* temp3.getElementsByClassName("menu-item--active")[0].scrollIntoView(false) */
-
-[@bs.send.pipe: Dom.element]
-external getElementsByClassName: string => Dom.htmlCollection = "";
-
-[@bs.get] external nextElementSibling: Dom.element => Dom.element = "";
-
-[@bs.send.pipe: Dom.element]
-external scrollIntoViewIfNeeded: bool => unit = "";
-
-[@bs.send.pipe: Dom.htmlCollection] [@bs.return nullable]
-external item: int => option(Dom.element) = "item";
+module Country = {
+  [@react.component]
+  let make = (~active, ~label, ~value, ~style, ~onClick) =>
+    <div style className={"menu-item" ++ (active ? " active" : "")} onClick>
+      <span className={"flag-icon flag-icon-" ++ value} />
+      <span className="menu-item-label"> {React.string(label)} </span>
+    </div>;
+};
 
 [@react.component]
 let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
-  let menuRef = React.useRef(Js.Nullable.null);
-  let lastKeyPress = React.useRef("");
   let didMountRef = React.useRef(false);
 
   let (state, dispatch) = React.useReducer(reducer, initialState);
@@ -112,60 +114,6 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
       Some(() => ());
     },
     [|state.value|],
-  );
-
-  React.useLayoutEffect1(
-    () => {
-      let menuDiv = menuRef |> React.Ref.current;
-      let isScrollingUp = React.Ref.current(lastKeyPress) === "up";
-
-      if (menuDiv !== Js.Nullable.null && state.activeIndex !== (-1)) {
-        menuDiv
-        |> Js.Nullable.toOption
-        |> Belt.Option.getExn
-        |> getElementsByClassName("menu-item active")
-        |> item(0)
-        |> Belt.Option.getExn
-        |> scrollIntoViewIfNeeded(isScrollingUp);
-        ();
-      };
-
-      Some(() => ());
-    },
-    [|state.activeIndex|],
-  );
-
-  let handleSelect = index => {
-    let value = List.nth(state.filteredValues, index);
-    dispatch(Select(value));
-    onChange(Some(value));
-  };
-
-  let handleCallback = e =>
-    switch (ReactEvent.Keyboard.key(e)) {
-    | "ArrowUp" =>
-      React.Ref.setCurrent(lastKeyPress, "up");
-      dispatch(Prev);
-    | "ArrowDown" =>
-      React.Ref.setCurrent(lastKeyPress, "down");
-      dispatch(Next);
-    | "Enter" => dispatch(OnEnter)
-    | _ => Js.log("")
-    };
-
-  React.useEffect1(
-    () => {
-      if (state.isOpen) {
-        dispatch(ResetIndex);
-        DomUtils.addKeybordEventListener("keydown", handleCallback);
-      } else {
-        DomUtils.removeKeybordEventListener("keydown", handleCallback);
-      };
-      Some(
-        () => DomUtils.removeKeybordEventListener("keydown", handleCallback),
-      );
-    },
-    [|state.isOpen|],
   );
 
   let handleClear = e => {
@@ -210,27 +158,31 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
               <Icon.Search />
               <input placeholder="Search" onChange=handleSearch />
             </div>
-            <div className="menu" ref={ReactDOMRe.Ref.domRef(menuRef)}>
-              {
-                state.filteredValues
-                |> List.mapi((i, x: t) =>
-                     <div
-                       key={string_of_int(i)}
-                       className={
-                         "menu-item"
-                         ++ (i === state.activeIndex ? " active" : "")
+            <VirtualList
+              height=400
+              itemCount={List.length(state.filteredValues)}
+              itemSize=28
+              width=298>
+              ...{
+                   (~props) => {
+                     let style = convertStyleObjToReasonStyle(props->style);
+                     let index = props->index;
+                     <Country
+                       key={string_of_int(index)}
+                       active={index == state.activeIndex}
+                       value={List.nth(state.filteredValues, index).value}
+                       label={List.nth(state.filteredValues, index).label}
+                       style
+                       onClick={
+                         _ =>
+                           dispatch(
+                             Select(List.nth(state.filteredValues, index)),
+                           )
                        }
-                       onClick={_ => dispatch(Select(x))}>
-                       <span className={"flag-icon flag-icon-" ++ x.value} />
-                       <span className="menu-item-label">
-                         {React.string(x.label)}
-                       </span>
-                     </div>
-                   )
-                |> Array.of_list
-                |> React.array
-              }
-            </div>
+                     />;
+                   }
+                 }
+            </VirtualList>
           </div> :
           React.null
       }
