@@ -193,7 +193,10 @@ let make = (~country: option(string), ~onChange: option(string) => unit=?) => {
     [|state.isOpen|],
   );
 
-  let handleOpenDropDown = _ => dispatch(ToggleOpen);
+  let handleOpenDropDown = e =>
+    if (ReactEvent.Keyboard.key(e) !== "Tab") {
+      dispatch(ToggleOpen);
+    };
 
   React.useEffect1(
     () => {

@@ -42,6 +42,8 @@
 }
 
 .select {
+  display: inline-block;
+  vertical-align: top;
   cursor: pointer;
   width: 300px;
   box-sizing: border-box;
