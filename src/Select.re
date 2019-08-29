@@ -1,5 +1,6 @@
 open Hooks;
 open VirtualList;
+open DomUtils;
 Utils.require("./style.css");
 Utils.require("flag-icon-css/css/flag-icon.css");
 
@@ -80,7 +81,7 @@ let reducer = (state, action) =>
   | Search(text) => {
       ...state,
       filteredValues: filterValues(state.values, text),
-      activeIndex: (-1),
+      activeIndex: 0,
     }
   };
 
@@ -91,19 +92,6 @@ let initialState = {
   activeIndex: (-1),
   filteredValues: [],
 };
-
-[@bs.send.pipe: Dom.element]
-external getElementsByClassName: string => Dom.htmlCollection = "";
-
-[@bs.get] external nextElementSibling: Dom.element => Dom.element = "";
-
-[@bs.get] external focus: Dom.element => unit = "";
-
-[@bs.send.pipe: Dom.element]
-external scrollIntoViewIfNeeded: bool => unit = "";
-
-[@bs.send.pipe: Dom.htmlCollection] [@bs.return nullable]
-external item: int => option(Dom.element) = "item";
 
 module Country = {
   [@react.component]
@@ -173,20 +161,18 @@ let make = (~values: list(t)=[], ~onChange: option(t) => unit=?) => {
       React.Ref.setCurrent(lastKeyPress, "down");
       dispatch(Next);
     | "Enter" => dispatch(SelectEnter)
-    | _ => Js.log("")
+    | _ => ()
     };
 
   React.useEffect1(
     () => {
       if (state.isOpen) {
         dispatch(ResetIndex);
-        DomUtils.addKeybordEventListener("keydown", handleCallback);
+        addKeybordEventListener("keydown", handleCallback);
       } else {
-        DomUtils.removeKeybordEventListener("keydown", handleCallback);
+        removeKeybordEventListener("keydown", handleCallback);
       };
-      Some(
-        () => DomUtils.removeKeybordEventListener("keydown", handleCallback),
-      );
+      Some(() => removeKeybordEventListener("keydown", handleCallback));
     },
     [|state.isOpen|],
   );
